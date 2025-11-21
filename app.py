@@ -6,7 +6,7 @@ import random
 app = Flask(__name__)
 
 def load_data():
-    return pd.read_csv('/Users/gutchumi/dev/mark6-generator/merged_results.csv')
+    return pd.read_csv('merged_results.csv')
 
 def generate_unique_combination(df):
     existing_combinations = set()

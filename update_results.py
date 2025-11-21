@@ -80,7 +80,7 @@ def fetch_and_parse_lottery_hk(last_draw_number=None):
     return pd.DataFrame(results)
 
 def update_database():
-    db_file = '/Users/gutchumi/dev/mark6-generator/merged_results.csv'
+    db_file = 'merged_results.csv'
     
     # 1. Read the existing database and find the last draw number
     try:
