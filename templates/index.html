@@ -1,0 +1,58 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mark 6 Number Generator</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center">Mark 6 Number Generator</h1>
+
+        <div class="card mt-4">
+            <div class="card-body">
+                <h2 class="card-title">Generate a Unique Combination</h2>
+                <p class="card-text">Click the button to generate a set of 6 numbers that has never been drawn before.</p>
+                <a href="/generate" class="btn btn-primary">Generate</a>
+                {% if new_combination %}
+                <div class="alert alert-success mt-3">
+                    <strong>Your unique combination is:</strong> {{ new_combination|join(', ') }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-body">
+                <h2 class="card-title">Search for a Combination</h2>
+                <p class="card-text">Enter 6 comma-separated numbers to see if they have ever been drawn.</p>
+                <form action="/search" method="post">
+                    <div class="form-group">
+                        <input type="text" class="form-control" name="numbers" placeholder="e.g., 1, 2, 3, 4, 5, 6">
+                    </div>
+                    <button type="submit" class="btn btn-secondary">Search</button>
+                </form>
+                {% if searched_numbers %}
+                    {% if search_result %}
+                    <div class="alert alert-info mt-3">
+                        <strong>The combination {{ searched_numbers|join(', ') }} was drawn on {{ search_result.date }} (Draw #{{ search_result.draw_number }}).</strong>
+                        <p>Numbers: {{ search_result.numbers|join(', ') }}<br>Bonus: {{ search_result.bonus }}</p>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning mt-3">
+                        <strong>The combination {{ searched_numbers|join(', ') }} has never been drawn.</strong>
+                    </div>
+                    {% endif %}
+                {% endif %}
+                {% if error %}
+                <div class="alert alert-danger mt-3">
+                    {{ error }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</body>
+</html>
