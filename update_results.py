@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup
 import re
 from datetime import datetime
 
+
 def fetch_and_parse_lottery_hk(last_draw_number=None):
     url = "https://lottery.hk/en/mark-six/results/"
     try:
@@ -16,67 +17,72 @@ def fetch_and_parse_lottery_hk(last_draw_number=None):
 
     soup = BeautifulSoup(response.content, 'html.parser')
     results = []
-    
-    # Find all year sections
-    year_sections = soup.find_all('h2')
 
-    for year_section in year_sections:
-        year = year_section.text.strip()
-        if not year.isdigit():
+    # Current layout: a single results table with class "-center _results"
+    table = soup.find("table", class_="-center _results")
+
+    if not table:
+        print("Could not find results table on lottery.hk page.")
+        return pd.DataFrame(results)
+
+    rows = table.find("tbody").find_all("tr")
+
+    for row in rows:
+        # Skip month header rows
+        if "tshead" in row.get("class", []):
             continue
 
-        # Find the table for the current year
-        table = year_section.find_next('table', class_='table-striped')
-        if not table:
+        cols = row.find_all("td")
+        if len(cols) < 3:
             continue
-            
-        rows = table.find('tbody').find_all('tr')
 
-        for row in rows:
-            cols = row.find_all('td')
-            if len(cols) < 3:
+        # Draw number appears directly, e.g. "25/126"
+        draw_number = cols[0].get_text(strip=True)
+
+        if last_draw_number and draw_number == last_draw_number:
+            print(f"Found last known draw number: {last_draw_number}. Stopping.")
+            return pd.DataFrame(results)
+
+        # Date is in format DD/MM/YYYY inside span.date
+        date_span = cols[1].find("span", class_="date")
+        date_str = date_span.get_text(strip=True) if date_span else cols[1].get_text(strip=True)
+
+        date = None
+        for fmt in ("%d/%m/%Y", "%Y-%m-%d"):
+            try:
+                date = datetime.strptime(date_str, fmt).strftime("%Y-%m-%d")
+                break
+            except ValueError:
                 continue
 
-            draw_info = cols[0].text.strip().split('/')
-            draw_year = year
-            draw_number_in_year = draw_info[0]
-            
-            # Handle cases where draw number is YY/NNN
-            if len(draw_info) > 1 and len(draw_info[0]) == 2:
-                draw_year_short = draw_info[0]
-                draw_number_in_year = draw_info[1]
-            else:
-                draw_year_short = str(year)[-2:]
+        # Numbers are inside ul.balls; last item (with "-plus") is bonus
+        balls_ul = cols[2].find("ul", class_="balls")
+        if not balls_ul:
+            continue
 
-            draw_number = f"{draw_year_short}/{draw_number_in_year}"
+        ball_items = balls_ul.find_all("li")
+        if len(ball_items) < 7:
+            # Expect 6 main numbers + 1 bonus
+            continue
 
-            if draw_number == last_draw_number:
-                print(f"Found last known draw number: {last_draw_number}. Stopping.")
-                return pd.DataFrame(results)
-            
-            date_str = cols[1].text.strip()
-            try:
-                date = datetime.strptime(date_str, '%Y-%m-%d').strftime('%Y-%m-%d')
-            except ValueError:
-                # Handle different date formats if necessary
-                date = None
+        ball_values = [int(li.get_text(strip=True)) for li in ball_items]
+        numbers = ball_values[:-1]
+        bonus = ball_values[-1]
 
-            numbers_div = cols[2]
-            numbers = [int(li.text) for li in numbers_div.find('ul', class_='list-inline').find_all('li', class_='result-ball')]
-            bonus = int(numbers_div.find('li', class_='result-ball-extra').text)
+        results.append(
+            {
+                "draw_number": draw_number,
+                "date": date,
+                "num_1": numbers[0],
+                "num_2": numbers[1],
+                "num_3": numbers[2],
+                "num_4": numbers[3],
+                "num_5": numbers[4],
+                "num_6": numbers[5],
+                "bonus": bonus,
+            }
+        )
 
-            results.append({
-                'draw_number': draw_number,
-                'date': date,
-                'num_1': numbers[0],
-                'num_2': numbers[1],
-                'num_3': numbers[2],
-                'num_4': numbers[3],
-                'num_5': numbers[4],
-                'num_6': numbers[5],
-                'bonus': bonus
-            })
-            
     return pd.DataFrame(results)
 
 def update_database():

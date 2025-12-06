@@ -1,0 +1,45 @@
+name: Update Mark 6 results
+
+on:
+  # Runs every day at 10:05pm Hong Kong time (14:05 UTC)
+  schedule:
+    - cron: '5 14 * * *'
+  # Allow manual runs from the GitHub Actions UI
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-results:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Update results CSV
+        run: python update_results.py
+
+      - name: Commit and push if merged_results.csv changed
+        run: |
+          if [ -n "$(git status --porcelain merged_results.csv)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add merged_results.csv
+            git commit -m "Auto-update merged_results.csv"
+            git push
+          else
+            echo "No changes to merged_results.csv"
+          fi
+
