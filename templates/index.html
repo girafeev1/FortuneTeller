@@ -53,6 +53,19 @@
                 {% endif %}
             </div>
         </div>
+
+        {% if last_draw %}
+        <div class="card mt-4">
+            <div class="card-body">
+                <h2 class="card-title">Last Drawn Result</h2>
+                <p class="card-text">
+                    Date: {{ last_draw.date }} (Draw #{{ last_draw.draw_number }})<br>
+                    Numbers: {{ last_draw.numbers|join(', ') }}<br>
+                    Bonus: {{ last_draw.bonus }}
+                </p>
+            </div>
+        </div>
+        {% endif %}
     </div>
 </body>
 </html>
