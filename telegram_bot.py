@@ -180,20 +180,34 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if query.data == "generate":
         # Ensure this chat is subscribed for future draw notifications
         subscribe_chat(update, context)
-        df = load_data()
-        combo = generate_unique_combination(df)
-        await query.message.reply_text(
-            f"Your unique combination is: {', '.join(str(n) for n in combo)}"
-        )
+        loading_msg = await query.message.reply_text("Loading...")
+        try:
+            df = load_data()
+            combo = generate_unique_combination(df)
+            await loading_msg.edit_text(
+                f"Your unique combination is: {', '.join(str(n) for n in combo)}"
+            )
+        except Exception:
+            await loading_msg.edit_text(
+                "Sorry, something went wrong while generating a combination. "
+                "Please try again in a moment."
+            )
 
 
 async def generate_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     subscribe_chat(update, context)
-    df = load_data()
-    combo = generate_unique_combination(df)
-    await update.message.reply_text(
-        f"Your unique combination is: {', '.join(str(n) for n in combo)}"
-    )
+    loading_msg = await update.message.reply_text("Loading...")
+    try:
+        df = load_data()
+        combo = generate_unique_combination(df)
+        await loading_msg.edit_text(
+            f"Your unique combination is: {', '.join(str(n) for n in combo)}"
+        )
+    except Exception:
+        await loading_msg.edit_text(
+            "Sorry, something went wrong while generating a combination. "
+            "Please try again in a moment."
+        )
 
 
 async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -209,25 +223,34 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         )
         return
 
+    loading_msg = await update.message.reply_text("Loading...")
+
     try:
         numbers = parse_numbers(text)
     except ValueError as e:
-        await update.message.reply_text(str(e))
+        await loading_msg.edit_text(str(e))
         return
 
-    df = load_data()
-    result = find_combination(df, numbers)
+    try:
+        df = load_data()
+        result = find_combination(df, numbers)
+    except Exception:
+        await loading_msg.edit_text(
+            "Sorry, something went wrong while checking that combination. "
+            "Please try again in a moment."
+        )
+        return
 
     if result:
         numbers_str = ", ".join(str(n) for n in result["numbers"])
-        await update.message.reply_text(
+        await loading_msg.edit_text(
             "This combination HAS been drawn.\n"
             f"Date: {result['date']} (Draw #{result['draw_number']})\n"
             f"Numbers: {numbers_str}\n"
             f"Bonus: {result['bonus']}"
         )
     else:
-        await update.message.reply_text(
+        await loading_msg.edit_text(
             "This combination has NEVER been drawn.\n"
             f"Numbers checked: {', '.join(str(n) for n in sorted(numbers))}"
         )
@@ -240,11 +263,13 @@ async def plain_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     subscribe_chat(update, context)
 
     text = update.message.text
+    loading_msg = await update.message.reply_text("Loading...")
+
     try:
         numbers = parse_numbers(text)
     except ValueError:
         # Not a valid 6-number combination; gently hint how to use it.
-        await update.message.reply_text(
+        await loading_msg.edit_text(
             "To check a combination, send 6 numbers like:\n"
             "1 2 3 4 5 6\n"
             "or\n"
@@ -252,19 +277,26 @@ async def plain_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
         return
 
-    df = load_data()
-    result = find_combination(df, numbers)
+    try:
+        df = load_data()
+        result = find_combination(df, numbers)
+    except Exception:
+        await loading_msg.edit_text(
+            "Sorry, something went wrong while checking that combination. "
+            "Please try again in a moment."
+        )
+        return
 
     if result:
         numbers_str = ", ".join(str(n) for n in result["numbers"])
-        await update.message.reply_text(
+        await loading_msg.edit_text(
             "This combination HAS been drawn.\n"
             f"Date: {result['date']} (Draw #{result['draw_number']})\n"
             f"Numbers: {numbers_str}\n"
             f"Bonus: {result['bonus']}"
         )
     else:
-        await update.message.reply_text(
+        await loading_msg.edit_text(
             "This combination has NEVER been drawn.\n"
             f"Numbers checked: {', '.join(str(n) for n in sorted(numbers))}"
         )
