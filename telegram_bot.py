@@ -21,10 +21,19 @@ from telegram.ext import (
 
 
 CSV_PATH = os.environ.get("MARK6_CSV_PATH", "merged_results.csv")
+CSV_URL = os.environ.get(
+    "MARK6_CSV_URL",
+    "https://raw.githubusercontent.com/girafeev1/FortuneTeller/main/merged_results.csv",
+)
 
 
 def load_data() -> pd.DataFrame:
-    return pd.read_csv(CSV_PATH)
+    # Prefer online CSV so the bot follows the deployed data
+    try:
+        return pd.read_csv(CSV_URL)
+    except Exception:
+        # Fallback to local file if network/unavailable
+        return pd.read_csv(CSV_PATH)
 
 
 def generate_unique_combination(df: pd.DataFrame) -> List[int]:
