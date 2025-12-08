@@ -26,7 +26,10 @@ CSV_URL = os.environ.get(
     "https://raw.githubusercontent.com/girafeev1/FortuneTeller/main/merged_results.csv",
 )
 
-GENERATE_PROMPT_TEXT = "Would you like to generate a unique combination?"
+GENERATE_PROMPT_TEXT = (
+    "Enter a combination of 6 numbers and check if it has been drawn "
+    "or Press the Generate button below for a unique combintaion"
+)
 
 
 def load_data() -> pd.DataFrame:
