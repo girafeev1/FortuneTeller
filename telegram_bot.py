@@ -95,6 +95,15 @@ def get_latest_draw(df: pd.DataFrame) -> Optional[Dict]:
     }
 
 
+def parse_numbers(text: str) -> List[int]:
+    cleaned = text.replace(",", " ").replace(";", " ")
+    parts = [p for p in cleaned.split() if p]
+    nums = [int(p) for p in parts]
+    if len(nums) != 6:
+        raise ValueError("Please provide exactly 6 numbers.")
+    return nums
+
+
 def format_date_human(date_str: str) -> str:
     try:
         dt = datetime.strptime(date_str, "%Y-%m-%d")
