@@ -3,3 +3,4 @@ pandas
 requests
 beautifulsoup4
 gunicorn
+python-telegram-bot>=21.0,<22.0
