@@ -26,6 +26,8 @@ CSV_URL = os.environ.get(
     "https://raw.githubusercontent.com/girafeev1/FortuneTeller/main/merged_results.csv",
 )
 
+GENERATE_PROMPT_TEXT = "Would you like to generate a unique combination?"
+
 
 def load_data() -> pd.DataFrame:
     # Prefer online CSV so the bot follows the deployed data
@@ -129,16 +131,37 @@ def subscribe_chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     subs.add(chat.id)
 
 
+def generate_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [[InlineKeyboardButton("Generate", callback_data="generate")]]
+    )
+
+
+async def send_generate_prompt(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    chat = update.effective_chat
+    if not chat:
+        return
+    await context.bot.send_message(
+        chat_id=chat.id,
+        text=GENERATE_PROMPT_TEXT,
+        reply_markup=generate_keyboard(),
+    )
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     subscribe_chat(update, context)
 
     header = (
         "Iiiiccchh Aaaaaaiiiiiiiiichhhhhh ugggghhhhhhhhhh\n"
-        "INGGGG INGGGGGGG UNNNNGGGG UNGGGGGGGG OOOOOOONNNN YOONNNGGGGGGGGG\n"
-        "\n"
+        "INGGGG INGGGGGGG UNNNNGGGG UNGGGGGGGG OOOOOOONNNN YOONNNGGGGGGGGG"
     )
 
-    last_draw_text = ""
+    # Bubble 1: header/scream
+    await update.message.reply_text(header)
+
+    # Prepare latest draw info
     try:
         df = load_data()
         latest = get_latest_draw(df)
@@ -152,25 +175,30 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             "Last Drawn Result:\n"
             f"Date: {date_str} (Draw #{latest['draw_number']})\n"
             f"Numbers: {numbers_str}\n"
-            f"Extra:   {latest['bonus']}\n"
-            "\n"
+            f"Extra:   {latest['bonus']}"
         )
+        # Bubble 2: last drawn result
+        await update.message.reply_text(last_draw_text)
 
-    footer = (
+    # Bubble 3: how to generate (text only)
+    generate_text = (
         "Type /generate or\n"
-        "Press the Generate button below for a unique combintaion\n"
-        "\n"
-        "or\n"
-        "\n"
-        "Enter a combination of 6 numbers and check if it has been drawn\n"
-        "1, 26, 39, 47, 31, 50 etc.\n"
+        "Press the Generate button below for a unique combintaion"
     )
+    await update.message.reply_text(generate_text)
 
-    message = header + last_draw_text + footer
+    # Bubble 4: 'or'
+    await update.message.reply_text("or")
 
-    keyboard = [[InlineKeyboardButton("Generate", callback_data="generate")]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text(message, reply_markup=reply_markup)
+    # Bubble 5: how to search
+    search_text = (
+        "Enter a combination of 6 numbers and check if it has been drawn\n"
+        "1, 26, 39, 47, 31, 50 etc."
+    )
+    await update.message.reply_text(search_text)
+
+    # Final bubble: generate prompt with button
+    await send_generate_prompt(update, context)
 
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -192,6 +220,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 "Sorry, something went wrong while generating a combination. "
                 "Please try again in a moment."
             )
+        # Keep generate button visible
+        await send_generate_prompt(update, context)
 
 
 async def generate_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -208,6 +238,8 @@ async def generate_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             "Sorry, something went wrong while generating a combination. "
             "Please try again in a moment."
         )
+    # Keep generate button visible
+    await send_generate_prompt(update, context)
 
 
 async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -229,6 +261,7 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         numbers = parse_numbers(text)
     except ValueError as e:
         await loading_msg.edit_text(str(e))
+        await send_generate_prompt(update, context)
         return
 
     try:
@@ -239,6 +272,7 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             "Sorry, something went wrong while checking that combination. "
             "Please try again in a moment."
         )
+        await send_generate_prompt(update, context)
         return
 
     if result:
@@ -254,6 +288,9 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             "This combination has NEVER been drawn.\n"
             f"Numbers checked: {', '.join(str(n) for n in sorted(numbers))}"
         )
+
+    # Keep generate button visible
+    await send_generate_prompt(update, context)
 
 
 async def plain_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -275,6 +312,7 @@ async def plain_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
             "or\n"
             "1,2,3,4,5,6"
         )
+        await send_generate_prompt(update, context)
         return
 
     try:
@@ -285,6 +323,7 @@ async def plain_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
             "Sorry, something went wrong while checking that combination. "
             "Please try again in a moment."
         )
+        await send_generate_prompt(update, context)
         return
 
     if result:
@@ -300,6 +339,9 @@ async def plain_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
             "This combination has NEVER been drawn.\n"
             f"Numbers checked: {', '.join(str(n) for n in sorted(numbers))}"
         )
+
+    # Keep generate button visible
+    await send_generate_prompt(update, context)
 
 
 def main() -> None:
@@ -360,6 +402,11 @@ def main() -> None:
         for chat_id in subs:
             try:
                 await context.bot.send_message(chat_id=chat_id, text=message)
+                await context.bot.send_message(
+                    chat_id=chat_id,
+                    text=GENERATE_PROMPT_TEXT,
+                    reply_markup=generate_keyboard(),
+                )
             except Exception:
                 continue
 
