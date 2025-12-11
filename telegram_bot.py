@@ -249,12 +249,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         # Bubble 2: last drawn result
         await update.message.reply_text(last_draw_text)
 
-    # Bubble 3: how to generate (text only)
+    # Bubble 3: how to generate (with button attached)
     generate_text = (
         "Type /generate or\n"
         "Press the Generate button below for a unique combintaion"
     )
-    await update.message.reply_text(generate_text)
+    await update.message.reply_text(generate_text, reply_markup=generate_keyboard())
 
     # Bubble 4: 'or'
     await update.message.reply_text("or")
@@ -265,9 +265,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "1, 26, 39, 47, 31, 50 etc."
     )
     await update.message.reply_text(search_text)
-
-    # Final bubble: generate prompt with button
-    await send_generate_prompt(update, context)
 
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
