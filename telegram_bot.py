@@ -246,6 +246,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     api_data = fetch_hkjc_draws()
     draws = api_data.get("lotteryDraws") if api_data else None
     latest = get_latest_hkjc_draw(draws or [])
+    next_draw_info = get_next_hkjc_draw(draws or [])
 
     if latest:
         date_str_raw = latest.get("drawDate", "") or ""
@@ -274,15 +275,28 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
     await update.message.reply_text(generate_text, reply_markup=generate_keyboard())
 
-    # Bubble 4: 'or'
-    await update.message.reply_text("or")
-
-    # Bubble 5: how to search
+    # Bubble 4: how to search
     search_text = (
         "Enter a combination of 6 numbers and check if it has been drawn\n"
         "1, 26, 39, 47, 31, 50 etc."
     )
     await update.message.reply_text(search_text)
+
+    # Bubble 5: next draw info (if available)
+    if next_draw_info:
+        draw_date_str = format_hkjc_dt(next_draw_info.get("drawDate", ""))
+        close_date_str = format_hkjc_dt(next_draw_info.get("closeDate", ""))
+        pool = next_draw_info.get("lotteryPool", {}) or {}
+        est_first = format_currency(pool.get("derivedFirstPrizeDiv") or "")
+        jackpot = format_currency(pool.get("jackpot") or "")
+        next_draw_text = (
+            "Next Draw:\n"
+            f"Date: {draw_date_str} (Draw #{next_draw_info.get('year','')}/{next_draw_info.get('no','')})\n"
+            f"Sales close: {close_date_str}\n"
+            f"Estimated 1st Division: HK${est_first}\n"
+            f"Jackpot: HK${jackpot}"
+        )
+        await update.message.reply_text(next_draw_text)
 
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
