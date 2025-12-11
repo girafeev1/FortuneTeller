@@ -185,6 +185,24 @@ def format_date_human(date_str: str) -> str:
         return date_str
 
 
+def format_hkjc_dt(dt_str: str) -> str:
+    """Format HKJC ISO-ish date string to 'MMM DD, YYYY HH:MM' without timezone."""
+    if not dt_str:
+        return ""
+    try:
+        dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
+        return dt.strftime("%b %d, %Y %H:%M")
+    except Exception:
+        return dt_str
+
+
+def format_currency(val: str) -> str:
+    try:
+        return f"{int(val):,}"
+    except Exception:
+        return val
+
+
 def subscribe_chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat = update.effective_chat
     if not chat:
@@ -375,22 +393,12 @@ async def nextdraw_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         await send_generate_prompt(update, context)
         return
 
-    draw_date = next_draw.get("drawDate", "")
-    close_date = next_draw.get("closeDate", "")
-    try:
-        draw_dt = datetime.fromisoformat(draw_date.replace("Z", "+00:00"))
-        draw_date_str = draw_dt.strftime("%Y-%m-%d %H:%M %Z")
-    except Exception:
-        draw_date_str = draw_date
-    try:
-        close_dt = datetime.fromisoformat(close_date.replace("Z", "+00:00"))
-        close_date_str = close_dt.strftime("%Y-%m-%d %H:%M %Z")
-    except Exception:
-        close_date_str = close_date
+    draw_date_str = format_hkjc_dt(next_draw.get("drawDate", ""))
+    close_date_str = format_hkjc_dt(next_draw.get("closeDate", ""))
 
     pool = next_draw.get("lotteryPool", {}) or {}
-    est_first = pool.get("derivedFirstPrizeDiv") or ""
-    jackpot = pool.get("jackpot") or ""
+    est_first = format_currency(pool.get("derivedFirstPrizeDiv") or "")
+    jackpot = format_currency(pool.get("jackpot") or "")
     unit = pool.get("unitBet") or 10
 
     msg = (
@@ -559,12 +567,13 @@ def main() -> None:
                     # Fire once per threshold when we are at or just inside the threshold window.
                     if minutes_left <= thr and thr not in sent_set:
                         pool = next_draw.get("lotteryPool", {}) or {}
-                        est_first = pool.get("derivedFirstPrizeDiv") or ""
-                        jackpot = pool.get("jackpot") or ""
+                        est_first = format_currency(pool.get("derivedFirstPrizeDiv") or "")
+                        jackpot = format_currency(pool.get("jackpot") or "")
+                        close_display = format_hkjc_dt(next_draw.get("closeDate", ""))
                         msg = (
                             f"Reminder: {thr} minutes until Mark 6 draw closes.\n"
                             f"Draw #{next_draw.get('year','')}/{next_draw.get('no','')} "
-                            f"closes at {close_dt.strftime('%Y-%m-%d %H:%M %Z')}.\n"
+                            f"closes at {close_display}.\n"
                             f"Estimated 1st Division: HK${est_first}\n"
                             f"Jackpot: HK${jackpot}"
                         )
