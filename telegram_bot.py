@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import List, Optional, Dict, Set
 
 import pandas as pd
+import requests
 from telegram import (
     Update,
     InlineKeyboardMarkup,
@@ -26,10 +27,15 @@ CSV_URL = os.environ.get(
     "https://raw.githubusercontent.com/girafeev1/FortuneTeller/main/merged_results.csv",
 )
 
+HKJC_GRAPHQL_URL = "https://info.cld.hkjc.com/graphql/base/"
+
 GENERATE_PROMPT_TEXT = (
     "Enter a combination of 6 numbers and check if it has been drawn "
     "or Press the Generate button below for a unique combintaion"
 )
+
+# Minutes before close time to notify users before draw closes
+REMINDER_THRESHOLDS_MIN = [60, 30, 15, 12, 10, 7, 5]
 
 
 def load_data() -> pd.DataFrame:
@@ -118,6 +124,56 @@ def parse_numbers(text: str) -> List[int]:
     return nums
 
 
+def fetch_hkjc_draws() -> Optional[Dict]:
+    payload = {
+        "operationName": "marksix",
+        "variables": {},
+        "query": (
+            "fragment lotteryDrawsFragment on LotteryDraw {\n"
+            "  id\n  year\n  no\n  openDate\n  closeDate\n  drawDate\n  status\n"
+            "  snowballCode\n  snowballName_en\n  snowballName_ch\n"
+            "  lotteryPool {\n"
+            "    sell\n    status\n    totalInvestment\n    jackpot\n    unitBet\n"
+            "    estimatedPrize\n    derivedFirstPrizeDiv\n"
+            "    lotteryPrizes { type winningUnit dividend }\n"
+            "  }\n"
+            "  drawResult { drawnNo xDrawnNo }\n"
+            "}\n"
+            "fragment lotteryDraws on Query {\n"
+            "  lotteryDraws(lotteryType: MARKSIX, limit: 3) { ...lotteryDrawsFragment }\n"
+            "}\n"
+            "query marksix { ...lotteryDraws }\n"
+        ),
+    }
+    try:
+        res = requests.post(HKJC_GRAPHQL_URL, json=payload, timeout=10)
+        res.raise_for_status()
+        data = res.json()
+        return data.get("data", {})
+    except Exception:
+        return None
+
+
+def get_latest_hkjc_draw(draws: List[Dict]) -> Optional[Dict]:
+    results = [d for d in draws if d.get("status", "").lower() == "result"]
+    if not results:
+        return None
+    results.sort(key=lambda d: d.get("drawDate", "") or d.get("id", ""), reverse=True)
+    return results[0]
+
+
+def get_next_hkjc_draw(draws: List[Dict]) -> Optional[Dict]:
+    candidates = [
+        d
+        for d in draws
+        if d.get("status", "").lower() in {"defined", "startsell", "selling", "pending"}
+    ]
+    if not candidates:
+        return None
+    candidates.sort(key=lambda d: d.get("closeDate", "") or d.get("drawDate", ""))
+    return candidates[0]
+
+
 def format_date_human(date_str: str) -> str:
     try:
         dt = datetime.strptime(date_str, "%Y-%m-%d")
@@ -164,21 +220,28 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # Bubble 1: header/scream
     await update.message.reply_text(header)
 
-    # Prepare latest draw info
-    try:
-        df = load_data()
-        latest = get_latest_draw(df)
-    except Exception:
-        latest = None
+    # Prepare latest draw info (HKJC API)
+    latest = None
+    api_data = fetch_hkjc_draws()
+    draws = api_data.get("lotteryDraws") if api_data else None
+    latest = get_latest_hkjc_draw(draws or [])
 
     if latest:
-        date_str = format_date_human(latest["date"])
-        numbers_str = ", ".join(str(n) for n in latest["numbers"])
+        date_str_raw = latest.get("drawDate", "") or ""
+        try:
+            date_str = datetime.fromisoformat(date_str_raw.replace("Z", "+00:00")).strftime(
+                "%b %d, %Y"
+            )
+        except Exception:
+            date_str = date_str_raw
+        nums = latest.get("drawResult", {}).get("drawnNo") or []
+        numbers_str = ", ".join(str(n) for n in nums)
+        bonus = latest.get("drawResult", {}).get("xDrawnNo")
         last_draw_text = (
             "Last Drawn Result:\n"
-            f"Date: {date_str} (Draw #{latest['draw_number']})\n"
+            f"Date: {date_str} (Draw #{latest.get('year','')}/{latest.get('no','')})\n"
             f"Numbers: {numbers_str}\n"
-            f"Extra:   {latest['bonus']}"
+            f"Extra:   {bonus}"
         )
         # Bubble 2: last drawn result
         await update.message.reply_text(last_draw_text)
@@ -296,6 +359,51 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await send_generate_prompt(update, context)
 
 
+async def nextdraw_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    subscribe_chat(update, context)
+    loading_msg = await update.message.reply_text("Loading...")
+    data = fetch_hkjc_draws()
+    if not data:
+        await loading_msg.edit_text("Could not reach HKJC at the moment. Please try again.")
+        await send_generate_prompt(update, context)
+        return
+
+    draws = data.get("lotteryDraws") or []
+    next_draw = get_next_hkjc_draw(draws)
+    if not next_draw:
+        await loading_msg.edit_text("No next draw info available right now.")
+        await send_generate_prompt(update, context)
+        return
+
+    draw_date = next_draw.get("drawDate", "")
+    close_date = next_draw.get("closeDate", "")
+    try:
+        draw_dt = datetime.fromisoformat(draw_date.replace("Z", "+00:00"))
+        draw_date_str = draw_dt.strftime("%Y-%m-%d %H:%M %Z")
+    except Exception:
+        draw_date_str = draw_date
+    try:
+        close_dt = datetime.fromisoformat(close_date.replace("Z", "+00:00"))
+        close_date_str = close_dt.strftime("%Y-%m-%d %H:%M %Z")
+    except Exception:
+        close_date_str = close_date
+
+    pool = next_draw.get("lotteryPool", {}) or {}
+    est_first = pool.get("derivedFirstPrizeDiv") or ""
+    jackpot = pool.get("jackpot") or ""
+    unit = pool.get("unitBet") or 10
+
+    msg = (
+        f"Next draw: #{next_draw.get('year','')}/{next_draw.get('no','')} "
+        f"on {draw_date_str}\n"
+        f"Sales close: {close_date_str}\n"
+        f"Estimated 1st Division: HK${est_first} (unit bet HK${unit})\n"
+        f"Jackpot: HK${jackpot}"
+    )
+    await loading_msg.edit_text(msg)
+    await send_generate_prompt(update, context)
+
+
 async def plain_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not update.message or not update.message.text:
         return
@@ -354,17 +462,25 @@ def main() -> None:
 
     application = ApplicationBuilder().token(token).build()
 
-    # Initialize last known draw number for change detection
+    # Initialize last known draw number and reminders from HKJC API
     try:
-        df = load_data()
-        latest = get_latest_draw(df)
+        api_data = fetch_hkjc_draws()
+        draws = api_data.get("lotteryDraws") if api_data else None
+        latest = get_latest_hkjc_draw(draws or [])
+        next_draw_init = get_next_hkjc_draw(draws or [])
         if latest:
-            application.bot_data["last_draw_number"] = latest["draw_number"]
+            application.bot_data["last_draw_id"] = latest.get("id")
+        if next_draw_init:
+            application.bot_data["next_draw"] = next_draw_init
+            application.bot_data.setdefault("reminders_sent", {})[
+                next_draw_init.get("id")
+            ] = set()
     except Exception:
-        application.bot_data["last_draw_number"] = None
+        application.bot_data["last_draw_id"] = None
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("generate", generate_command))
+    application.add_handler(CommandHandler("nextdraw", nextdraw_command))
     application.add_handler(CommandHandler("search", search_command))
     application.add_handler(CallbackQueryHandler(button_handler))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, plain_text_handler))
@@ -374,47 +490,98 @@ def main() -> None:
 
     async def check_for_new_draw(context: ContextTypes.DEFAULT_TYPE) -> None:
         try:
-            df = load_data()
-            latest = get_latest_draw(df)
+            api_data = fetch_hkjc_draws()
+            draws = api_data.get("lotteryDraws") if api_data else None
         except Exception:
             return
 
-        if not latest:
+        if not draws:
             return
 
         app = context.application
-        last_draw_number = app.bot_data.get("last_draw_number")
-        if last_draw_number == latest["draw_number"]:
-            return
+        latest = get_latest_hkjc_draw(draws)
+        next_draw = get_next_hkjc_draw(draws)
 
-        app.bot_data["last_draw_number"] = latest["draw_number"]
-
-        subs: Set[int] = app.bot_data.get("subscribed_chats", set())
-        if not subs:
-            return
-
-        date_str = format_date_human(latest["date"])
-        numbers_str = ", ".join(str(n) for n in latest["numbers"])
-        message = (
-            "New Mark 6 draw!\n"
-            f"Date: {date_str} (Draw #{latest['draw_number']})\n"
-            f"Numbers: {numbers_str}\n"
-            f"Extra:   {latest['bonus']}"
-        )
-
-        for chat_id in subs:
-            try:
-                await context.bot.send_message(chat_id=chat_id, text=message)
-                await context.bot.send_message(
-                    chat_id=chat_id,
-                    text=GENERATE_PROMPT_TEXT,
-                    reply_markup=generate_keyboard(),
+        # New draw notification
+        if latest:
+            last_draw_id = app.bot_data.get("last_draw_id")
+            current_id = latest.get("id")
+            if current_id and current_id != last_draw_id:
+                app.bot_data["last_draw_id"] = current_id
+                subs: Set[int] = app.bot_data.get("subscribed_chats", set())
+                date_str_raw = latest.get("drawDate", "") or ""
+                try:
+                    date_str = datetime.fromisoformat(
+                        date_str_raw.replace("Z", "+00:00")
+                    ).strftime("%b %d, %Y")
+                except Exception:
+                    date_str = date_str_raw
+                nums = latest.get("drawResult", {}).get("drawnNo") or []
+                numbers_str = ", ".join(str(n) for n in nums)
+                bonus = latest.get("drawResult", {}).get("xDrawnNo")
+                message = (
+                    "New Mark 6 draw!\n"
+                    f"Date: {date_str} (Draw #{latest.get('year','')}/{latest.get('no','')})\n"
+                    f"Numbers: {numbers_str}\n"
+                    f"Extra:   {bonus}"
                 )
-            except Exception:
-                continue
+                for chat_id in subs:
+                    try:
+                        await context.bot.send_message(chat_id=chat_id, text=message)
+                        await context.bot.send_message(
+                            chat_id=chat_id,
+                            text=GENERATE_PROMPT_TEXT,
+                            reply_markup=generate_keyboard(),
+                        )
+                    except Exception:
+                        continue
 
-    # Check once an hour; you can tune this if you like
-    job_queue.run_repeating(check_for_new_draw, interval=3600, first=300)
+        # Store next draw info for reminders
+        if next_draw:
+            app.bot_data["next_draw"] = next_draw
+            # Reset reminders when draw changes
+            reminders = app.bot_data.setdefault("reminders_sent", {})
+            if next_draw.get("id") not in reminders:
+                reminders[next_draw.get("id")] = set()
+
+            close_raw = next_draw.get("closeDate", "") or ""
+            try:
+                close_dt = datetime.fromisoformat(close_raw.replace("Z", "+00:00"))
+            except Exception:
+                close_dt = None
+
+            if close_dt:
+                now = datetime.now(close_dt.tzinfo)
+                minutes_left = int((close_dt - now).total_seconds() // 60)
+                sent_set = reminders.get(next_draw.get("id"), set())
+                subs: Set[int] = app.bot_data.get("subscribed_chats", set())
+                for thr in REMINDER_THRESHOLDS_MIN:
+                    if minutes_left == thr and thr not in sent_set:
+                        pool = next_draw.get("lotteryPool", {}) or {}
+                        est_first = pool.get("derivedFirstPrizeDiv") or ""
+                        jackpot = pool.get("jackpot") or ""
+                        msg = (
+                            f"Reminder: {thr} minutes until Mark 6 draw closes.\n"
+                            f"Draw #{next_draw.get('year','')}/{next_draw.get('no','')} "
+                            f"closes at {close_dt.strftime('%Y-%m-%d %H:%M %Z')}.\n"
+                            f"Estimated 1st Division: HK${est_first}\n"
+                            f"Jackpot: HK${jackpot}"
+                        )
+                        for chat_id in subs:
+                            try:
+                                await context.bot.send_message(chat_id=chat_id, text=msg)
+                                await context.bot.send_message(
+                                    chat_id=chat_id,
+                                    text=GENERATE_PROMPT_TEXT,
+                                    reply_markup=generate_keyboard(),
+                                )
+                            except Exception:
+                                continue
+                        sent_set.add(thr)
+                reminders[next_draw.get("id")] = sent_set
+
+    # Check frequently for new draws and reminders
+    job_queue.run_repeating(check_for_new_draw, interval=60, first=5)
 
     application.run_polling()
 
