@@ -556,7 +556,8 @@ def main() -> None:
                 sent_set = reminders.get(next_draw.get("id"), set())
                 subs: Set[int] = app.bot_data.get("subscribed_chats", set())
                 for thr in REMINDER_THRESHOLDS_MIN:
-                    if minutes_left == thr and thr not in sent_set:
+                    # Fire once per threshold when we are at or just inside the threshold window.
+                    if minutes_left <= thr and thr not in sent_set:
                         pool = next_draw.get("lotteryPool", {}) or {}
                         est_first = pool.get("derivedFirstPrizeDiv") or ""
                         jackpot = pool.get("jackpot") or ""
