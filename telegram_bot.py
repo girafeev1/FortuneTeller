@@ -139,10 +139,13 @@ def fetch_hkjc_draws() -> Optional[Dict]:
             "  }\n"
             "  drawResult { drawnNo xDrawnNo }\n"
             "}\n"
-            "fragment lotteryDraws on Query {\n"
-            "  lotteryDraws(lotteryType: MARKSIX, limit: 3) { ...lotteryDrawsFragment }\n"
+            "fragment lotteryStatFragment on LotteryStat {\n"
+            "  year\n  no\n  drawDate\n  drawnNumbers { lastDrawnIn totalNumber drawnNo }\n"
             "}\n"
-            "query marksix { ...lotteryDraws }\n"
+            "query marksix {\n"
+            "  lotteryDraws { ...lotteryDrawsFragment }\n"
+            "  lotteryStats { ...lotteryStatFragment }\n"
+            "}\n"
         ),
     }
     try:
