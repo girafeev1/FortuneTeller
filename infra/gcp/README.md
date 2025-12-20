@@ -20,11 +20,16 @@ Option A (recommended): Use your Google account credentials (no key file)
   - `gcloud auth login`
   - `gcloud auth application-default login`
 
-Option B: Use a service account key JSON that has Compute permissions
-- The service account must have at least:
+Option B: Use a dedicated service account key JSON (recommended for servers)
+- Create a new service account, e.g. `mark6-terraform`, in:
+  - GCP Console → IAM & Admin → Service Accounts → Create service account
+- Grant it roles on the project:
   - `roles/compute.admin`
-  - `roles/iam.serviceAccountUser` (if you later attach service accounts to instances)
-- Set `GOOGLE_APPLICATION_CREDENTIALS=/path/to/key.json` before running Terraform.
+  - `roles/iam.serviceAccountUser` (needed to create a VM using the project’s default Compute Engine service account)
+- Create a JSON key for it:
+  - Service Accounts → click it → Keys → Add key → Create new key → JSON
+- Save it locally and set:
+  - `GOOGLE_APPLICATION_CREDENTIALS=/path/to/key.json`
 
 ## Quick start
 
@@ -67,4 +72,3 @@ To delete everything created by this Terraform:
 ```
 terraform destroy
 ```
-
