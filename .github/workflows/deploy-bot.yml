@@ -1,0 +1,72 @@
+name: Deploy Telegram bot (GCE VM)
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - merged_results.csv
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  GCP_PROJECT_ID: hotbes
+  GCE_ZONE: us-west1-b
+  GCE_INSTANCE: fortune-teller
+  SSH_USER: mark6
+  LOCAL_SSH_PORT: "2222"
+
+jobs:
+  deploy:
+    if: >-
+      ${{
+        secrets.GCP_WORKLOAD_IDENTITY_PROVIDER != '' &&
+        secrets.GCP_SERVICE_ACCOUNT_EMAIL != '' &&
+        secrets.MARK6_DEPLOY_SSH_PRIVATE_KEY != ''
+      }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Auth to Google Cloud (OIDC)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Start IAP tunnel
+        run: |
+          set -euo pipefail
+          gcloud --quiet compute start-iap-tunnel "${GCE_INSTANCE}" 22 \
+            --project "${GCP_PROJECT_ID}" \
+            --zone "${GCE_ZONE}" \
+            --local-host-port="localhost:${LOCAL_SSH_PORT}" &
+
+          for _ in {1..30}; do
+            nc -z localhost "${LOCAL_SSH_PORT}" && break
+            sleep 1
+          done
+
+          nc -z localhost "${LOCAL_SSH_PORT}"
+
+      - name: Deploy + restart service
+        env:
+          MARK6_DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.MARK6_DEPLOY_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          printf '%s\n' "${MARK6_DEPLOY_SSH_PRIVATE_KEY}" > ~/.ssh/mark6_deploy_key
+          chmod 600 ~/.ssh/mark6_deploy_key
+
+          ssh-keyscan -p "${LOCAL_SSH_PORT}" localhost >> ~/.ssh/known_hosts
+
+          ssh -p "${LOCAL_SSH_PORT}" -i ~/.ssh/mark6_deploy_key "${SSH_USER}@localhost" \
+            'set -euo pipefail; cd ~/mark6-generator; git fetch origin main; git reset --hard origin/main; ./.venv/bin/pip install -r requirements.txt; sudo systemctl restart mark6-bot'

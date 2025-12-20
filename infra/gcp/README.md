@@ -3,6 +3,7 @@
 This Terraform creates:
 - A dedicated VPC + subnet
 - SSH ingress (TCP/22) from **your IP only**
+- SSH ingress (TCP/22) from **IAP** (Cloud Console / `gcloud --tunnel-through-iap`)
 - A Compute Engine VM (default `e2-micro`)
 - A startup script that installs Python, clones this repo, sets up a venv, and writes a `systemd` unit (it does **not** store your Telegram token)
 
@@ -42,6 +43,22 @@ terraform apply
 ```
 
 After apply, Terraform prints `public_ip` and an `ssh_command`.
+
+## Push-based deploy (GitHub Actions)
+
+This repo includes `.github/workflows/deploy-bot.yml` which deploys to the VM on every push to `main` (it ignores `merged_results.csv` updates).
+
+Prereqs:
+- Enable **IAP API** in the GCP project (GCP Console → APIs & Services → enable **Cloud Identity-Aware Proxy API**).
+- Apply this Terraform once to create:
+  - A Workload Identity Provider for GitHub OIDC
+  - A deployer service account with minimal permissions
+  - An SSH firewall rule for the IAP TCP range
+
+Then add these GitHub repo secrets:
+- `GCP_WORKLOAD_IDENTITY_PROVIDER`: Terraform output `github_actions_workload_identity_provider`
+- `GCP_SERVICE_ACCOUNT_EMAIL`: Terraform output `github_actions_service_account`
+- `MARK6_DEPLOY_SSH_PRIVATE_KEY`: the private key that matches a public key on the VM (see `extra_ssh_public_key_paths`)
 
 ## Finish bot setup on the VM
 

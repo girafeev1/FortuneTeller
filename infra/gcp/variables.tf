@@ -49,6 +49,12 @@ variable "ssh_private_key_path_for_command" {
   default     = null
 }
 
+variable "extra_ssh_public_key_paths" {
+  type        = list(string)
+  description = "Optional extra SSH public key paths to add to instance metadata (e.g. a CI deploy key)."
+  default     = []
+}
+
 variable "instance_name" {
   type        = string
   description = "Compute instance name (lowercase letters/digits/hyphens)."
@@ -91,3 +97,14 @@ variable "app_dir" {
   default     = "/home/mark6/mark6-generator"
 }
 
+variable "github_repository" {
+  type        = string
+  description = "GitHub repo in ORG/REPO form allowed to deploy via OIDC."
+  default     = "girafeev1/FortuneTeller"
+}
+
+variable "github_ref" {
+  type        = string
+  description = "Git ref allowed to deploy via OIDC (e.g. refs/heads/main)."
+  default     = "refs/heads/main"
+}
