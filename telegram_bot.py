@@ -31,9 +31,11 @@ CSV_URL = os.environ.get(
 
 HKJC_GRAPHQL_URL = "https://info.cld.hkjc.com/graphql/base/"
 
+ZWSP = "\u200b"  # zero-width space to allow nested bold+italic in MarkdownV2
+
 GENERATE_PROMPT_TEXT = (
-    "Enter a combination of *_6 numbers_* and check if it has been drawn "
-    "or Press *_Generate_* below for a unique number combination"
+    f"Enter a combination of *{ZWSP}_6 numbers_{ZWSP}* and check if it has been drawn "
+    f"or Press *{ZWSP}_Generate_{ZWSP}* below for a unique number combination"
 )
 
 # Minutes before close time to notify users before draw closes
