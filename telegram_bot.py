@@ -10,7 +10,6 @@ from telegram import (
     Update,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
-    MessageEntity,
 )
 from telegram.constants import ParseMode
 from telegram.ext import (
@@ -32,11 +31,6 @@ CSV_URL = os.environ.get(
 
 HKJC_GRAPHQL_URL = "https://info.cld.hkjc.com/graphql/base/"
 
-GENERATE_PROMPT_TEXT = (
-    "Enter a combination of 6 numbers and check if it has been drawn "
-    "or Press Generate below for a unique number combination"
-)
-
 # Minutes before close time to notify users before draw closes
 REMINDER_THRESHOLDS_MIN = [60, 30, 15, 12, 10, 7, 5]
 
@@ -44,25 +38,24 @@ REMINDER_THRESHOLDS_MIN = [60, 30, 15, 12, 10, 7, 5]
 def escape_html(value: object) -> str:
     return html_escape("" if value is None else str(value), quote=False)
 
-
-def build_generate_prompt_entities(text: str) -> List[MessageEntity]:
-    entities: List[MessageEntity] = []
-    for phrase in ("6 numbers", "Generate"):
-        try:
-            offset = text.index(phrase)
-        except ValueError:
-            continue
-        length = len(phrase)
-        entities.append(
-            MessageEntity(type=MessageEntity.BOLD, offset=offset, length=length)
-        )
-        entities.append(
-            MessageEntity(type=MessageEntity.ITALIC, offset=offset, length=length)
-        )
-    return entities
+_ZWSP = "\u200b"
 
 
-GENERATE_PROMPT_ENTITIES = build_generate_prompt_entities(GENERATE_PROMPT_TEXT)
+def format_bold_italic(text: str) -> str:
+    # Telegram entities must be properly nested and must not overlap.
+    # To get bold+italic on the same visible text reliably, we pad the outer <b>
+    # with zero-width spaces so the <i> entity is strictly nested.
+    return f"<b>{_ZWSP}<i>{escape_html(text)}</i>{_ZWSP}</b>"
+
+
+def get_generate_prompt_html() -> str:
+    return (
+        "Enter a combination of "
+        f"{format_bold_italic('6 numbers')} "
+        "and check if it has been drawn or Press "
+        f"{format_bold_italic('Generate')} "
+        "below for a unique number combination"
+    )
 
 
 def load_data() -> pd.DataFrame:
@@ -252,8 +245,8 @@ async def send_generate_prompt(
         return
     await context.bot.send_message(
         chat_id=chat.id,
-        text=GENERATE_PROMPT_TEXT,
-        entities=GENERATE_PROMPT_ENTITIES,
+        text=get_generate_prompt_html(),
+        parse_mode=ParseMode.HTML,
         reply_markup=generate_keyboard(),
     )
 
@@ -584,8 +577,8 @@ def main() -> None:
                         await context.bot.send_message(chat_id=chat_id, text=message)
                         await context.bot.send_message(
                             chat_id=chat_id,
-                            text=GENERATE_PROMPT_TEXT,
-                            entities=GENERATE_PROMPT_ENTITIES,
+                            text=get_generate_prompt_html(),
+                            parse_mode=ParseMode.HTML,
                             reply_markup=generate_keyboard(),
                         )
                     except Exception:
@@ -629,8 +622,8 @@ def main() -> None:
                                 await context.bot.send_message(chat_id=chat_id, text=msg)
                                 await context.bot.send_message(
                                     chat_id=chat_id,
-                                    text=GENERATE_PROMPT_TEXT,
-                                    entities=GENERATE_PROMPT_ENTITIES,
+                                    text=get_generate_prompt_html(),
+                                    parse_mode=ParseMode.HTML,
                                     reply_markup=generate_keyboard(),
                                 )
                             except Exception:
