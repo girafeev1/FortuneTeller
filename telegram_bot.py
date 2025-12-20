@@ -32,8 +32,8 @@ CSV_URL = os.environ.get(
 HKJC_GRAPHQL_URL = "https://info.cld.hkjc.com/graphql/base/"
 
 GENERATE_PROMPT_TEXT = (
-    "Enter a combination of _*6 numbers*_ and check if it has been drawn "
-    "or Press _*Generate*_ below for a unique number combination"
+    "Enter a combination of* _6 numbers_ *and check if it has been drawn "
+    "or Press* _Generate_ *below for a unique number combination"
 )
 
 # Minutes before close time to notify users before draw closes
