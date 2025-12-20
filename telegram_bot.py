@@ -1,6 +1,7 @@
 import os
 import random
 from datetime import datetime
+from html import escape as html_escape
 from typing import List, Optional, Dict, Set
 
 import pandas as pd
@@ -10,6 +11,7 @@ from telegram import (
     InlineKeyboardMarkup,
     InlineKeyboardButton,
 )
+from telegram.constants import ParseMode
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -36,6 +38,10 @@ GENERATE_PROMPT_TEXT = (
 
 # Minutes before close time to notify users before draw closes
 REMINDER_THRESHOLDS_MIN = [60, 30, 15, 12, 10, 7, 5]
+
+
+def escape_html(value: object) -> str:
+    return html_escape("" if value is None else str(value), quote=False)
 
 
 def load_data() -> pd.DataFrame:
@@ -260,13 +266,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         numbers_str = ", ".join(str(n) for n in nums)
         bonus = latest.get("drawResult", {}).get("xDrawnNo")
         last_draw_text = (
-            "Last Drawn Result:\n"
-            f"Date: {date_str} (Draw #{latest.get('year','')}/{latest.get('no','')})\n"
-            f"Numbers: {numbers_str}\n"
-            f"Extra:   {bonus}"
+            "<b>Last Drawn Result:</b>\n"
+            f"Date: {escape_html(date_str)} (Draw #{escape_html(latest.get('year',''))}/{escape_html(latest.get('no',''))})\n"
+            f"Numbers: {escape_html(numbers_str)}\n"
+            f"Extra:   {escape_html(bonus)}"
         )
         # Bubble 2: last drawn result
-        await update.message.reply_text(last_draw_text)
+        await update.message.reply_text(last_draw_text, parse_mode=ParseMode.HTML)
 
     # Bubble 3: how to generate (with button attached)
     generate_text = (
@@ -278,9 +284,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # Bubble 4: how to search
     search_text = (
         "Enter a combination of 6 numbers and check if it has been drawn\n"
-        "1, 26, 39, 47, 31, 50 etc."
+        "<i>1, 26, 39, 47, 31, 50 etc.</i>"
     )
-    await update.message.reply_text(search_text)
+    await update.message.reply_text(search_text, parse_mode=ParseMode.HTML)
 
     # Bubble 5: next draw info (if available)
     if next_draw_info:
@@ -290,13 +296,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         est_first = format_currency(pool.get("derivedFirstPrizeDiv") or "")
         jackpot = format_currency(pool.get("jackpot") or "")
         next_draw_text = (
-            "Next Draw:\n"
-            f"Date: {draw_date_str} (Draw #{next_draw_info.get('year','')}/{next_draw_info.get('no','')})\n"
-            f"Sales close: {close_date_str}\n"
-            f"Estimated 1st Division: HK${est_first}\n"
-            f"Jackpot: HK${jackpot}"
+            "<b>Next Draw:</b>\n"
+            f"<i>Date: {escape_html(draw_date_str)} (Draw #{escape_html(next_draw_info.get('year',''))}/{escape_html(next_draw_info.get('no',''))})</i>\n"
+            f"<i>Sales close: {escape_html(close_date_str)}</i>\n"
+            f"<i>Estimated 1st Division: HK${escape_html(est_first)}</i>\n"
+            f"<i>Jackpot: HK${escape_html(jackpot)}</i>"
         )
-        await update.message.reply_text(next_draw_text)
+        await update.message.reply_text(next_draw_text, parse_mode=ParseMode.HTML)
 
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -416,13 +422,13 @@ async def nextdraw_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     unit = pool.get("unitBet") or 10
 
     msg = (
-        f"Next draw: #{next_draw.get('year','')}/{next_draw.get('no','')} "
-        f"on {draw_date_str}\n"
-        f"Sales close: {close_date_str}\n"
-        f"Estimated 1st Division: HK${est_first} (unit bet HK${unit})\n"
-        f"Jackpot: HK${jackpot}"
+        "<b>Next Draw:</b>\n"
+        f"<i>Date: {escape_html(draw_date_str)} (Draw #{escape_html(next_draw.get('year',''))}/{escape_html(next_draw.get('no',''))})</i>\n"
+        f"<i>Sales close: {escape_html(close_date_str)}</i>\n"
+        f"<i>Estimated 1st Division: HK${escape_html(est_first)} (unit bet HK${escape_html(unit)})</i>\n"
+        f"<i>Jackpot: HK${escape_html(jackpot)}</i>"
     )
-    await loading_msg.edit_text(msg)
+    await loading_msg.edit_text(msg, parse_mode=ParseMode.HTML)
     await send_generate_prompt(update, context)
 
 
