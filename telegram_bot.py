@@ -10,6 +10,7 @@ from telegram import (
     Update,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
+    MessageEntity,
 )
 from telegram.constants import ParseMode
 from telegram.ext import (
@@ -32,8 +33,8 @@ CSV_URL = os.environ.get(
 HKJC_GRAPHQL_URL = "https://info.cld.hkjc.com/graphql/base/"
 
 GENERATE_PROMPT_TEXT = (
-    "Enter a combination of* _6 numbers_ *and check if it has been drawn "
-    "or Press* _Generate_ *below for a unique number combination"
+    "Enter a combination of 6 numbers and check if it has been drawn "
+    "or Press Generate below for a unique number combination"
 )
 
 # Minutes before close time to notify users before draw closes
@@ -42,6 +43,26 @@ REMINDER_THRESHOLDS_MIN = [60, 30, 15, 12, 10, 7, 5]
 
 def escape_html(value: object) -> str:
     return html_escape("" if value is None else str(value), quote=False)
+
+
+def build_generate_prompt_entities(text: str) -> List[MessageEntity]:
+    entities: List[MessageEntity] = []
+    for phrase in ("6 numbers", "Generate"):
+        try:
+            offset = text.index(phrase)
+        except ValueError:
+            continue
+        length = len(phrase)
+        entities.append(
+            MessageEntity(type=MessageEntity.BOLD, offset=offset, length=length)
+        )
+        entities.append(
+            MessageEntity(type=MessageEntity.ITALIC, offset=offset, length=length)
+        )
+    return entities
+
+
+GENERATE_PROMPT_ENTITIES = build_generate_prompt_entities(GENERATE_PROMPT_TEXT)
 
 
 def load_data() -> pd.DataFrame:
@@ -232,7 +253,7 @@ async def send_generate_prompt(
     await context.bot.send_message(
         chat_id=chat.id,
         text=GENERATE_PROMPT_TEXT,
-        parse_mode=ParseMode.MARKDOWN_V2,
+        entities=GENERATE_PROMPT_ENTITIES,
         reply_markup=generate_keyboard(),
     )
 
@@ -564,7 +585,7 @@ def main() -> None:
                         await context.bot.send_message(
                             chat_id=chat_id,
                             text=GENERATE_PROMPT_TEXT,
-                            parse_mode=ParseMode.MARKDOWN_V2,
+                            entities=GENERATE_PROMPT_ENTITIES,
                             reply_markup=generate_keyboard(),
                         )
                     except Exception:
@@ -609,7 +630,7 @@ def main() -> None:
                                 await context.bot.send_message(
                                     chat_id=chat_id,
                                     text=GENERATE_PROMPT_TEXT,
-                                    parse_mode=ParseMode.MARKDOWN_V2,
+                                    entities=GENERATE_PROMPT_ENTITIES,
                                     reply_markup=generate_keyboard(),
                                 )
                             except Exception:
