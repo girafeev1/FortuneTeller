@@ -1,0 +1,22 @@
+# Required
+compartment_ocid      = "ocid1.compartment.oc1..REPLACE_ME"
+ssh_public_key_path   = "/Users/<you>/.ssh/oci_mark6.pub"
+ssh_ingress_cidr      = "1.2.3.4/32"
+
+# Used only to print the SSH command (Terraform never reads this key)
+ssh_private_key_path_for_command = "/Users/<you>/.ssh/oci_mark6"
+
+# Optional overrides
+instance_name         = "Fortune Teller"
+instance_ocpus        = 1
+instance_memory_gbs   = 6
+boot_volume_size_in_gbs = 50
+
+# Optional: leave unset to auto-pick the first Availability Domain in the region.
+# availability_domain = "RFyf:AP-SINGAPORE-2-AD-1"
+
+# If on-demand Always Free capacity is exhausted in your region, try preemptible:
+# preemptible = true
+
+# If you want to pin a specific platform image OCID, set it here; otherwise Terraform picks latest Oracle Linux 9 for your shape.
+# image_ocid = "ocid1.image.oc1..REPLACE_ME"
