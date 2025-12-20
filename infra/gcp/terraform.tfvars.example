@@ -1,0 +1,13 @@
+# Required
+project_id           = "your-gcp-project-id"
+ssh_ingress_cidr     = "1.2.3.4/32"
+ssh_public_key_path  = "/Users/<you>/.ssh/oci_mark6.pub"
+
+# Optional (Always Free eligible zones are US only; pick the one you want)
+zone                 = "us-west1-b"
+instance_name        = "fortune-teller"
+machine_type         = "e2-micro"
+
+# Used only to print an SSH command
+ssh_private_key_path_for_command = "/Users/<you>/.ssh/oci_mark6"
+
