@@ -31,11 +31,9 @@ CSV_URL = os.environ.get(
 
 HKJC_GRAPHQL_URL = "https://info.cld.hkjc.com/graphql/base/"
 
-ZWSP = "\u200b"  # zero-width space to allow nested bold+italic in MarkdownV2
-
 GENERATE_PROMPT_TEXT = (
-    f"Enter a combination of *{ZWSP}_6 numbers_{ZWSP}* and check if it has been drawn "
-    f"or Press *{ZWSP}_Generate_{ZWSP}* below for a unique number combination"
+    "Enter a combination of _*6 numbers*_ and check if it has been drawn "
+    "or Press _*Generate*_ below for a unique number combination"
 )
 
 # Minutes before close time to notify users before draw closes
@@ -319,8 +317,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         try:
             df = load_data()
             combo = generate_unique_combination(df)
+            numbers_str = ", ".join(str(n) for n in combo)
             await loading_msg.edit_text(
-                f"Your unique combination is: {', '.join(str(n) for n in combo)}"
+                f"Your unique combination is: <b>{escape_html(numbers_str)}</b>",
+                parse_mode=ParseMode.HTML,
             )
         except Exception:
             await loading_msg.edit_text(
@@ -337,8 +337,10 @@ async def generate_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     try:
         df = load_data()
         combo = generate_unique_combination(df)
+        numbers_str = ", ".join(str(n) for n in combo)
         await loading_msg.edit_text(
-            f"Your unique combination is: {', '.join(str(n) for n in combo)}"
+            f"Your unique combination is: <b>{escape_html(numbers_str)}</b>",
+            parse_mode=ParseMode.HTML,
         )
     except Exception:
         await loading_msg.edit_text(
