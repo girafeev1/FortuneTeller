@@ -3,4 +3,4 @@ pandas
 requests
 beautifulsoup4
 gunicorn
-python-telegram-bot>=21.0,<22.0
+python-telegram-bot[job-queue]>=21.0,<22.0

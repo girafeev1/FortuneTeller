@@ -20,12 +20,6 @@ env:
 
 jobs:
   deploy:
-    if: >-
-      ${{
-        secrets.GCP_WORKLOAD_IDENTITY_PROVIDER != '' &&
-        secrets.GCP_SERVICE_ACCOUNT_EMAIL != '' &&
-        secrets.MARK6_DEPLOY_SSH_PRIVATE_KEY != ''
-      }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
