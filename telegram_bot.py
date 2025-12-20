@@ -32,8 +32,8 @@ CSV_URL = os.environ.get(
 HKJC_GRAPHQL_URL = "https://info.cld.hkjc.com/graphql/base/"
 
 GENERATE_PROMPT_TEXT = (
-    "Enter a combination of <b><i>6 numbers</i></b> and check if it has been drawn "
-    "or Press <b><i>Generate</i></b> below for a unique number combination"
+    "Enter a combination of *_6 numbers_* and check if it has been drawn "
+    "or Press *_Generate_* below for a unique number combination"
 )
 
 # Minutes before close time to notify users before draw closes
@@ -232,7 +232,7 @@ async def send_generate_prompt(
     await context.bot.send_message(
         chat_id=chat.id,
         text=GENERATE_PROMPT_TEXT,
-        parse_mode=ParseMode.HTML,
+        parse_mode=ParseMode.MARKDOWN_V2,
         reply_markup=generate_keyboard(),
     )
 
@@ -560,7 +560,7 @@ def main() -> None:
                         await context.bot.send_message(
                             chat_id=chat_id,
                             text=GENERATE_PROMPT_TEXT,
-                            parse_mode=ParseMode.HTML,
+                            parse_mode=ParseMode.MARKDOWN_V2,
                             reply_markup=generate_keyboard(),
                         )
                     except Exception:
@@ -605,7 +605,7 @@ def main() -> None:
                                 await context.bot.send_message(
                                     chat_id=chat_id,
                                     text=GENERATE_PROMPT_TEXT,
-                                    parse_mode=ParseMode.HTML,
+                                    parse_mode=ParseMode.MARKDOWN_V2,
                                     reply_markup=generate_keyboard(),
                                 )
                             except Exception:
