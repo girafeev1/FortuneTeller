@@ -409,8 +409,9 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         )
     else:
         await loading_msg.edit_text(
-            "This combination has NEVER been drawn.\n"
-            f"Numbers checked: {', '.join(str(n) for n in sorted(numbers))}"
+            "This combination has <b>NEVER</b> been drawn.\n"
+            f"Numbers checked: {', '.join(str(n) for n in sorted(numbers))}",
+            parse_mode=ParseMode.HTML,
         )
 
     # Keep generate button visible
