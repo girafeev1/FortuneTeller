@@ -401,10 +401,11 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if result:
         numbers_str = ", ".join(str(n) for n in result["numbers"])
         await loading_msg.edit_text(
-            "This combination HAS been drawn.\n"
+            "This combination <b>HAS</b> been drawn.\n"
             f"Date: {result['date']} (Draw #{result['draw_number']})\n"
             f"Numbers: {numbers_str}\n"
-            f"Bonus: {result['bonus']}"
+            f"Bonus: {result['bonus']}",
+            parse_mode=ParseMode.HTML,
         )
     else:
         await loading_msg.edit_text(
